@@ -35,15 +35,38 @@ export function axioscanFreeHandler({ sourceName, text }) {
   };
 }
 
+function parseMoneyToNumber(str) {
+  if (!str) return NaN;
+  const s = String(str)
+    .replace(/[$,\s]/g, '')
+    .toUpperCase();
+  const m = s.match(/^(\d+(?:\.\d+)?)([KM])?$/);
+  if (!m) return NaN;
+
+  const base = Number(m[1]);
+  const suffix = m[2];
+
+  if (!Number.isFinite(base)) return NaN;
+  if (suffix === 'K') return base * 1_000;
+  if (suffix === 'M') return base * 1_000_000;
+  return base;
+}
+
 export function axioscanPremiumHandler({ sourceName, text }) {
   const raw = String(text ?? '').trim();
   if (!raw) return null;
 
   const holdersMatch = raw.match(/Holders:\s*([\d,]+)/i);
+
   const top10Match = raw.match(
     /Top\s*10\s*Holders\s*:\s*(?:Σ\s*)?(\d+(?:\.\d+)?)\s*%/i
   );
+
   const devHoldMatch = raw.match(/Dev\s*hold\s*:\s*(\d+(?:\.\d+)?)\s*%/i);
+
+  const mcMatch = raw.match(
+    /(?:MC|Market\s*Cap)\s*:\s*\$?\s*([\d.,]+\s*[KM]?)/i
+  );
 
   const holders = holdersMatch
     ? Number(String(holdersMatch[1]).replace(/,/g, ''))
@@ -51,14 +74,17 @@ export function axioscanPremiumHandler({ sourceName, text }) {
 
   const top10 = top10Match ? Number(top10Match[1]) : NaN;
   const devHold = devHoldMatch ? Number(devHoldMatch[1]) : NaN;
+  const mc = mcMatch ? parseMoneyToNumber(mcMatch[1]) : NaN;
 
-  if (!Number.isFinite(holders) || !Number.isFinite(top10)) return null;
-
-  // filter premium
-  if (holders < 100) return null;
-  if (top10 < 20) return null;
+  if (!Number.isFinite(holders)) return null;
+  if (!Number.isFinite(top10)) return null;
   if (!Number.isFinite(devHold)) return null;
-  if (devHold !== 0) return null;
+  if (!Number.isFinite(mc)) return null;
+
+  if (devHold > 3) return null;
+  if (holders < 80) return null;
+  if (top10 < 20) return null;
+  if (mc > 25_000) return null;
 
   const cleaned = raw
     .replace(/\r\n/g, '\n')
