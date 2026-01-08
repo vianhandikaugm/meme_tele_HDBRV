@@ -13,6 +13,7 @@ const stringSession = process.env.TG_STRING_SESSION;
 const botToken = process.env.BOT_TOKEN;
 const targetCallsId = process.env.TARGET_CHANNEL_CALLS;
 const targetResultId = process.env.TARGET_CHANNEL_RESULT;
+const targetPremiumId = process.env.TARGET_CHANNEL_PREMIUM;
 
 const FORWARD_DELAY_MS = Number(process.env.FORWARD_DELAY_MS ?? '1200');
 
@@ -22,9 +23,9 @@ if (!apiId || !apiHash || !stringSession) {
   );
 }
 
-if (!botToken || !targetCallsId || !targetResultId) {
+if (!botToken || !targetCallsId || !targetResultId || !targetPremiumId) {
   throw new Error(
-    'Missing BOT_TOKEN / TARGET_CHANNEL_CALLS / TARGET_CHANNEL_RESULT in .env'
+    'Missing BOT_TOKEN / TARGET_CHANNEL_CALLS / TARGET_CHANNEL_RESULT / TARGET_CHANNEL_PREMIUM in .env'
   );
 }
 
@@ -67,7 +68,13 @@ function normalizeOut(out) {
   }
 
   if (typeof out === 'object' && typeof out.text === 'string') {
-    const target = out.target === 'result' ? 'result' : 'calls';
+    const target =
+      out.target === 'result'
+        ? 'result'
+        : out.target === 'premium'
+        ? 'premium'
+        : 'calls';
+
     return { target, text: out.text };
   }
 
@@ -79,9 +86,7 @@ async function main() {
     new StringSession(stringSession),
     apiId,
     apiHash,
-    {
-      connectionRetries: 10,
-    }
+    { connectionRetries: 10 }
   );
 
   await client.connect();
@@ -126,7 +131,11 @@ async function main() {
     if (!normalized) return;
 
     const targetChatId =
-      normalized.target === 'result' ? targetResultId : targetCallsId;
+      normalized.target === 'premium'
+        ? targetPremiumId
+        : normalized.target === 'result'
+        ? targetResultId
+        : targetCallsId;
 
     enqueue(async () => {
       await sendToTelegramChannel({
