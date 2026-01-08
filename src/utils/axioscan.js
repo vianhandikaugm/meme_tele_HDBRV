@@ -35,6 +35,20 @@ export function axioscanFreeHandler({ sourceName, text }) {
   };
 }
 
+// PREMIUM //
+
+function toNumberEnv(value, fallback) {
+  const n = Number(String(value ?? '').trim());
+  return Number.isFinite(n) ? n : fallback;
+}
+
+const PREMIUM_CFG = {
+  maxDevHold: toNumberEnv(process.env.PREMIUM_MAX_DEV_HOLD, 3),
+  minHolders: toNumberEnv(process.env.PREMIUM_MIN_HOLDERS, 80),
+  minTop10: toNumberEnv(process.env.PREMIUM_MIN_TOP10, 20),
+  maxMc: toNumberEnv(process.env.PREMIUM_MAX_MC, 25_000),
+};
+
 function parseMoneyToNumber(str) {
   if (!str) return NaN;
   const s = String(str)
@@ -45,8 +59,8 @@ function parseMoneyToNumber(str) {
 
   const base = Number(m[1]);
   const suffix = m[2];
-
   if (!Number.isFinite(base)) return NaN;
+
   if (suffix === 'K') return base * 1_000;
   if (suffix === 'M') return base * 1_000_000;
   return base;
@@ -57,13 +71,10 @@ export function axioscanPremiumHandler({ sourceName, text }) {
   if (!raw) return null;
 
   const holdersMatch = raw.match(/Holders:\s*([\d,]+)/i);
-
   const top10Match = raw.match(
     /Top\s*10\s*Holders\s*:\s*(?:Σ\s*)?(\d+(?:\.\d+)?)\s*%/i
   );
-
   const devHoldMatch = raw.match(/Dev\s*hold\s*:\s*(\d+(?:\.\d+)?)\s*%/i);
-
   const mcMatch = raw.match(
     /(?:MC|Market\s*Cap)\s*:\s*\$?\s*([\d.,]+\s*[KM]?)/i
   );
@@ -71,7 +82,6 @@ export function axioscanPremiumHandler({ sourceName, text }) {
   const holders = holdersMatch
     ? Number(String(holdersMatch[1]).replace(/,/g, ''))
     : NaN;
-
   const top10 = top10Match ? Number(top10Match[1]) : NaN;
   const devHold = devHoldMatch ? Number(devHoldMatch[1]) : NaN;
   const mc = mcMatch ? parseMoneyToNumber(mcMatch[1]) : NaN;
@@ -81,10 +91,10 @@ export function axioscanPremiumHandler({ sourceName, text }) {
   if (!Number.isFinite(devHold)) return null;
   if (!Number.isFinite(mc)) return null;
 
-  if (devHold > 3) return null;
-  if (holders < 80) return null;
-  if (top10 < 20) return null;
-  if (mc > 25_000) return null;
+  if (devHold > PREMIUM_CFG.maxDevHold) return null;
+  if (holders < PREMIUM_CFG.minHolders) return null;
+  if (top10 < PREMIUM_CFG.minTop10) return null;
+  if (mc > PREMIUM_CFG.maxMc) return null;
 
   const cleaned = raw
     .replace(/\r\n/g, '\n')
