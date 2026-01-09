@@ -12,8 +12,10 @@ export function cHubAlertsHandler({ sourceName, text }) {
 
   const isResult = /\b\d+(?:\.\d+)?x\s*ALERT\b/i.test(cleaned);
 
+  if (isResult) return null;
+
   return {
-    target: isResult ? 'result' : 'calls',
+    target: 'hub',
     text: `📣 ${sourceName}\n\n${cleaned}`.trim(),
   };
 }

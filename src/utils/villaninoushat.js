@@ -8,8 +8,10 @@ export function villaninousHatHandler({ sourceName, text }) {
 
   const isMultiplier = /\b\d+(?:\.\d+)?x\b/i.test(cleaned);
 
+  if (isMultiplier) return null;
+
   return {
-    target: isMultiplier ? 'result' : 'calls',
+    target: 'hat',
     text: `🎩 ${sourceName}\n\n${cleaned}`.trim(),
   };
 }

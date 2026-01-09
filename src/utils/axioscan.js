@@ -37,9 +37,10 @@ export function axioscanFreeHandler({ sourceName, text }) {
   if (!cleaned) return null;
 
   const isGrowth = /\bGrowth:\s*x\d+(?:\.\d+)?\b/i.test(cleaned);
+  if (isGrowth) return null;
 
   return {
-    target: isGrowth ? 'result' : 'calls',
+    target: 'free',
     text: `🧪 ${sourceName}\n\n${cleaned}`.trim(),
   };
 }
@@ -119,7 +120,7 @@ export function axioscanPremiumHandler({ sourceName, text }) {
   if (!cleaned) return null;
 
   return {
-    target: 'premium',
+    target: 'star',
     text: `🧪 ${sourceName}\n\n${cleaned}`.trim(),
   };
 }
