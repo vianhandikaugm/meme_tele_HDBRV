@@ -1,5 +1,6 @@
 export function axioscanFreeHandler({ sourceName, text }) {
   const raw = String(text ?? '').trim();
+  if (!raw) return null;
 
   if (/VIP\s*access:\s*@axioinvite_bot/i.test(raw)) return null;
 
@@ -19,6 +20,14 @@ export function axioscanFreeHandler({ sourceName, text }) {
     /ask\s+questions/i,
   ];
   if (communityPromo.some((rx) => rx.test(raw))) return null;
+
+  const top10Match = raw.match(
+    /Top\s*10\s*Holders\s*:\s*(?:Σ\s*)?(\d+(?:\.\d+)?)\s*%/i
+  );
+  if (top10Match) {
+    const top10 = Number(top10Match[1]);
+    if (Number.isFinite(top10) && top10 < 20) return null;
+  }
 
   const cleaned = raw
     .replace(/\r\n/g, '\n')
