@@ -11,9 +11,12 @@ const apiHash = process.env.TG_API_HASH;
 const stringSession = process.env.TG_STRING_SESSION;
 
 const botToken = process.env.BOT_TOKEN;
-const targetCallsId = process.env.TARGET_CHANNEL_CALLS;
-const targetResultId = process.env.TARGET_CHANNEL_RESULT;
-const targetPremiumId = process.env.TARGET_CHANNEL_PREMIUM;
+
+// NEW TARGETS
+const targetFreeId = process.env.TARGET_CHANNEL_FREE;
+const targetHatId = process.env.TARGET_CHANNEL_HAT;
+const targetHubId = process.env.TARGET_CHANNEL_HUB;
+const targetStarId = process.env.TARGET_CHANNEL_STAR;
 
 const FORWARD_DELAY_MS = Number(process.env.FORWARD_DELAY_MS ?? '1200');
 
@@ -23,9 +26,15 @@ if (!apiId || !apiHash || !stringSession) {
   );
 }
 
-if (!botToken || !targetCallsId || !targetResultId || !targetPremiumId) {
+if (
+  !botToken ||
+  !targetFreeId ||
+  !targetHatId ||
+  !targetHubId ||
+  !targetStarId
+) {
   throw new Error(
-    'Missing BOT_TOKEN / TARGET_CHANNEL_CALLS / TARGET_CHANNEL_RESULT / TARGET_CHANNEL_PREMIUM in .env'
+    'Missing BOT_TOKEN / TARGET_CHANNEL_FREE / TARGET_CHANNEL_HAT / TARGET_CHANNEL_HUB / TARGET_CHANNEL_STAR in .env'
   );
 }
 
@@ -54,7 +63,8 @@ function toBotApiChatId(chat) {
   if (idStr.startsWith('-100')) return idStr;
 
   if (chat.className === 'Channel' || chat.className === 'ChannelForbidden') {
-    return `-100${idStr}`;
+    const abs = idStr.startsWith('-') ? idStr.slice(1) : idStr;
+    return `-100${abs}`;
   }
 
   return idStr.startsWith('-') ? idStr : idStr;
@@ -64,21 +74,38 @@ function normalizeOut(out) {
   if (!out) return null;
 
   if (typeof out === 'string') {
-    return { target: 'calls', text: out };
+    return { target: 'free', text: out };
   }
 
   if (typeof out === 'object' && typeof out.text === 'string') {
+    const t = String(out.target ?? '').toLowerCase();
+
+    if (t === 'result') return null;
+
     const target =
-      out.target === 'result'
-        ? 'result'
-        : out.target === 'premium'
-        ? 'premium'
-        : 'calls';
+      t === 'star'
+        ? 'star'
+        : t === 'hat'
+        ? 'hat'
+        : t === 'hub'
+        ? 'hub'
+        : 'free';
 
     return { target, text: out.text };
   }
 
   return null;
+}
+
+function resolveTargetChatId(normalized, sourceId) {
+  if (normalized.target === 'star') return targetStarId;
+
+  const sourceName = SOURCE_NAMES[sourceId];
+
+  if (sourceName === 'VILLANINOUS_HAT') return targetHatId;
+  if (sourceName === 'C_HUB_ALERTS') return targetHubId;
+
+  return targetFreeId;
 }
 
 async function main() {
@@ -103,7 +130,23 @@ async function main() {
     const sourceId = toBotApiChatId(chat);
     if (!sourceId) return;
 
-    if (!SOURCE_IDS.has(sourceId)) return;
+    const DEBUG = process.env.DEBUG_LOG === '1';
+
+    if (DEBUG) {
+      console.log('📩 incoming', {
+        chatTitle: chat?.title,
+        className: chat?.className,
+        rawChatId:
+          typeof chat?.id === 'bigint' ? chat.id.toString() : String(chat?.id),
+        sourceId,
+        msgId: message.id,
+      });
+    }
+
+    if (!SOURCE_IDS.has(sourceId)) {
+      if (DEBUG) console.log('⛔ skipped: not in SOURCE_IDS', { sourceId });
+      return;
+    }
 
     const msgId = message.id;
     const key = dedupeKey({ sourceId, msgId });
@@ -130,12 +173,7 @@ async function main() {
     const normalized = normalizeOut(out);
     if (!normalized) return;
 
-    const targetChatId =
-      normalized.target === 'premium'
-        ? targetPremiumId
-        : normalized.target === 'result'
-        ? targetResultId
-        : targetCallsId;
+    const targetChatId = resolveTargetChatId(normalized, sourceId);
 
     enqueue(async () => {
       await sendToTelegramChannel({
