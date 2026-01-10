@@ -14,8 +14,6 @@ const botToken = process.env.BOT_TOKEN;
 
 // NEW TARGETS
 const targetFreeId = process.env.TARGET_CHANNEL_FREE;
-const targetHatId = process.env.TARGET_CHANNEL_HAT;
-const targetHubId = process.env.TARGET_CHANNEL_HUB;
 const targetStarId = process.env.TARGET_CHANNEL_STAR;
 
 const FORWARD_DELAY_MS = Number(process.env.FORWARD_DELAY_MS ?? '1200');
@@ -29,12 +27,10 @@ if (!apiId || !apiHash || !stringSession) {
 if (
   !botToken ||
   !targetFreeId ||
-  !targetHatId ||
-  !targetHubId ||
   !targetStarId
 ) {
   throw new Error(
-    'Missing BOT_TOKEN / TARGET_CHANNEL_FREE / TARGET_CHANNEL_HAT / TARGET_CHANNEL_HUB / TARGET_CHANNEL_STAR in .env'
+    'Missing BOT_TOKEN / TARGET_CHANNEL_FREE / TARGET_CHANNEL_STAR in .env'
   );
 }
 
@@ -99,11 +95,6 @@ function normalizeOut(out) {
 
 function resolveTargetChatId(normalized, sourceId) {
   if (normalized.target === 'star') return targetStarId;
-
-  const sourceName = SOURCE_NAMES[sourceId];
-
-  if (sourceName === 'VILLANINOUS_HAT') return targetHatId;
-  if (sourceName === 'C_HUB_ALERTS') return targetHubId;
 
   return targetFreeId;
 }
