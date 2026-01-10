@@ -13,8 +13,10 @@ const stringSession = process.env.TG_STRING_SESSION;
 const botToken = process.env.BOT_TOKEN;
 
 // NEW TARGETS
-const targetFreeId = process.env.TARGET_CHANNEL_FREE;
+const targetPremiumId = process.env.TARGET_CHANNEL_PREMIUM;
+const targetMoonId = process.env.TARGET_CHANNEL_MOON;
 const targetStarId = process.env.TARGET_CHANNEL_STAR;
+const targetOthersId = process.env.TARGET_CHANNEL_OTHERS;
 
 const FORWARD_DELAY_MS = Number(process.env.FORWARD_DELAY_MS ?? '1200');
 
@@ -26,11 +28,13 @@ if (!apiId || !apiHash || !stringSession) {
 
 if (
   !botToken ||
-  !targetFreeId ||
-  !targetStarId
+  !targetPremiumId ||
+  !targetMoonId ||
+  !targetStarId ||
+  !targetOthersId
 ) {
   throw new Error(
-    'Missing BOT_TOKEN / TARGET_CHANNEL_FREE / TARGET_CHANNEL_STAR in .env'
+    'Missing BOT_TOKEN / TARGET_CHANNEL_PREMIUM / TARGET_CHANNEL_MOON / TARGET_CHANNEL_STAR / TARGET_CHANNEL_OTHERS in .env'
   );
 }
 
@@ -70,33 +74,35 @@ function normalizeOut(out) {
   if (!out) return null;
 
   if (typeof out === 'string') {
-    return { target: 'free', text: out };
+    // fallback legacy -> masuk others
+    return { target: 'others', text: out };
   }
 
   if (typeof out === 'object' && typeof out.text === 'string') {
     const t = String(out.target ?? '').toLowerCase();
 
-    if (t === 'result') return null;
+    if (t === 'premium' || t === 'moon' || t === 'star' || t === 'others') {
+      return { target: t, text: out.text };
+    }
 
-    const target =
-      t === 'star'
-        ? 'star'
-        : t === 'hat'
-        ? 'hat'
-        : t === 'hub'
-        ? 'hub'
-        : 'free';
-
-    return { target, text: out.text };
+    // unknown target -> others
+    return { target: 'others', text: out.text };
   }
 
   return null;
 }
 
-function resolveTargetChatId(normalized, sourceId) {
-  if (normalized.target === 'star') return targetStarId;
-
-  return targetFreeId;
+function resolveTargetChatId(normalized) {
+  switch (normalized.target) {
+    case 'premium':
+      return targetPremiumId;
+    case 'star':
+      return targetStarId;
+    case 'moon':
+      return targetMoonId;
+    default:
+      return targetOthersId;
+  }
 }
 
 async function main() {
@@ -104,7 +110,9 @@ async function main() {
     new StringSession(stringSession),
     apiId,
     apiHash,
-    { connectionRetries: 10 }
+    {
+      connectionRetries: 10,
+    }
   );
 
   await client.connect();
@@ -122,7 +130,6 @@ async function main() {
     if (!sourceId) return;
 
     const DEBUG = process.env.DEBUG_LOG === '1';
-
     if (DEBUG) {
       console.log('📩 incoming', {
         chatTitle: chat?.title,
@@ -164,7 +171,7 @@ async function main() {
     const normalized = normalizeOut(out);
     if (!normalized) return;
 
-    const targetChatId = resolveTargetChatId(normalized, sourceId);
+    const targetChatId = resolveTargetChatId(normalized);
 
     enqueue(async () => {
       await sendToTelegramChannel({
