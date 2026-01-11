@@ -1,18 +1,17 @@
 /** -------------------- HARDCODE FILTERS -------------------- **/
 const PREMIUM_RULES = {
   maxMc: 20_000,
-  minHolders: 100,
+  minHolders: 80,
   devHoldExact: 0,
-  minTop10Strict: 20,
-  requireSocials: ['X', 'WEB'],
+  minTop10Strict: 17,
 };
 
 const MOON_RULES = {
   minMc: 0,
   maxMc: 40_000,
-  minHolders: 100,
-  maxDevHold: 3,
-  minTop10Strict: 20,
+  minHolders: 80,
+  maxDevHold: 4,
+  minTop10Strict: 17,
 };
 
 const STAR_RULES = {
