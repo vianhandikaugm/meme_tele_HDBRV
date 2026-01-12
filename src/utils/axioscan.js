@@ -1,26 +1,3 @@
-/** -------------------- HARDCODE FILTERS -------------------- **/
-const PREMIUM_RULES = {
-  maxMc: 20_000,
-  minHolders: 80,
-  devHoldExact: 0,
-  minTop10Strict: 17,
-};
-
-const MOON_RULES = {
-  minMc: 0,
-  maxMc: 40_000,
-  minHolders: 80,
-  maxDevHold: 4,
-  minTop10Strict: 17,
-};
-
-const STAR_RULES = {
-  minMc: 0,
-  maxMc: 80_000,
-  minHolders: 150,
-  devHoldExact: 0,
-};
-
 /** -------------------- BASIC FILTER (common skip) -------------------- **/
 function shouldSkipCommon(raw) {
   if (!raw) return true;
@@ -52,6 +29,7 @@ function shouldSkipCommon(raw) {
 /** -------------------- PARSERS -------------------- **/
 function parseMoneyToNumber(input) {
   if (!input) return NaN;
+
   const cleaned = String(input).replace(/\$/g, '').replace(/,/g, '').trim();
   const m = cleaned.match(/(\d+(?:\.\d+)?)([KMB])?/i);
   if (!m) return NaN;
@@ -73,11 +51,6 @@ function parseMoneyToNumber(input) {
 }
 
 function parseAxi(raw) {
-  const title = (String(raw).split('\n')[0] || '').trim();
-
-  const caMatch = raw.match(/^\s*CA:\s*([A-Za-z0-9]+)\s*$/m);
-  const ca = caMatch?.[1] ?? null;
-
   const mcMatch = raw.match(/📊\s*MC:\s*\$?\s*([0-9.,]+\s*[KMB]?)/i);
   const mc = parseMoneyToNumber(mcMatch?.[1]);
 
@@ -86,20 +59,7 @@ function parseAxi(raw) {
     ? Number(String(holdersMatch[1]).replace(/,/g, ''))
     : NaN;
 
-  const devHoldMatch = raw.match(/Dev\s*hold:\s*([0-9.]+)\s*%/i);
-  const devHold = devHoldMatch ? Number(devHoldMatch[1]) : NaN;
-
-  const top10Match = raw.match(/Top\s*10\s*Holders:\s*(?:Σ\s*)?([0-9.]+)\s*%/i);
-  const top10 = top10Match ? Number(top10Match[1]) : NaN;
-
-  const socialsMatch = raw.match(/🌐\s*Socials:\s*([^\n]+)/i);
-  const socialsRaw = socialsMatch?.[1] ?? '';
-  const socials = socialsRaw
-    .split(/[\|,]/)
-    .map((s) => s.trim().toUpperCase())
-    .filter(Boolean);
-
-  return { title, ca, mc, holders, devHold, top10, socials };
+  return { mc, holders };
 }
 
 /** -------------------- CLEANER (strip footer only) -------------------- **/
@@ -121,62 +81,35 @@ function stripFooter(raw) {
     return false;
   };
 
-  const lines = s.split('\n');
-  const kept = lines.filter((ln) => !dropLine(ln));
-
-  return kept
+  return s
+    .split('\n')
+    .filter((ln) => !dropLine(ln))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
-/** -------------------- RULE CHECKERS -------------------- **/
-function hasAllSocials(list, required) {
-  const set = new Set((list || []).map((x) => String(x).toUpperCase()));
-  return required.every((r) => set.has(String(r).toUpperCase()));
-}
+/** -------------------- CLASSIFIER (4 buckets) -------------------- **/
+function classify({ mc, holders }) {
+  if (!Number.isFinite(mc) || !Number.isFinite(holders)) return 'others';
 
-function isPremium(d) {
-  const r = PREMIUM_RULES;
-  return (
-    Number.isFinite(d.mc) &&
-    Number.isFinite(d.holders) &&
-    Number.isFinite(d.devHold) &&
-    Number.isFinite(d.top10) &&
-    d.mc <= r.maxMc &&
-    d.holders >= r.minHolders &&
-    d.devHold === r.devHoldExact &&
-    d.top10 > r.minTop10Strict &&
-    hasAllSocials(d.socials, r.requireSocials)
-  );
-}
+  // 1 & 2: 0–30k
+  if (mc >= 0 && mc <= 30_000) {
+    // 1) LOW HOLDERS EARLY -> STAR
+    if (holders < 90) return 'star';
 
-function isStar(d) {
-  const r = STAR_RULES;
-  return (
-    Number.isFinite(d.mc) &&
-    Number.isFinite(d.holders) &&
-    Number.isFinite(d.devHold) &&
-    d.mc >= r.minMc &&
-    d.mc <= r.maxMc &&
-    d.holders >= r.minHolders &&
-    d.devHold === r.devHoldExact
-  );
-}
+    // 2) GOOD HOLDERS EARLY -> MOON
+    return 'moon';
+  }
 
-function isMoon(d) {
-  const r = MOON_RULES;
-  return (
-    Number.isFinite(d.mc) &&
-    Number.isFinite(d.holders) &&
-    Number.isFinite(d.devHold) &&
-    Number.isFinite(d.top10) &&
-    d.mc >= r.minMc &&
-    d.mc <= r.maxMc &&
-    d.holders >= r.minHolders &&
-    d.devHold <= r.maxDevHold &&
-    d.top10 > r.minTop10Strict
-  );
+  // 3) MID CAP BUILDING: >30k–80k & holders >=120 -> PREMIUM
+  if (mc > 30_000 && mc <= 80_000) {
+    if (holders >= 120) return 'premium';
+    return 'others';
+  }
+
+  // 4) sisanya
+  return 'others';
 }
 
 /** -------------------- EXPORTS -------------------- **/
@@ -185,14 +118,16 @@ export function axioscanPremiumHandler({ sourceName, text }) {
   if (!raw || shouldSkipCommon(raw)) return null;
 
   const d = parseAxi(raw);
-  if (!isPremium(d)) return null;
+  const target = classify(d);
+
+  if (target !== 'premium') return null;
 
   const cleaned = stripFooter(raw);
   if (!cleaned) return null;
 
   return {
     target: 'premium',
-    text: `${cleaned}`.trim(),
+    text: cleaned.trim(),
   };
 }
 
@@ -201,17 +136,15 @@ export function axioscanFreeHandler({ sourceName, text }) {
   if (!raw || shouldSkipCommon(raw)) return null;
 
   const d = parseAxi(raw);
+  const target = classify(d);
+
+  if (target === 'premium') return null;
 
   const cleaned = stripFooter(raw);
   if (!cleaned) return null;
 
-  if (isStar(d)) {
-    return { target: 'star', text: `${cleaned}`.trim() };
-  }
-
-  if (isMoon(d)) {
-    return { target: 'moon', text: `${cleaned}`.trim() };
-  }
-
-  return { target: 'others', text: `${cleaned}`.trim() };
+  return {
+    target,
+    text: cleaned.trim(),
+  };
 }
