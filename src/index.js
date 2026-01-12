@@ -13,10 +13,10 @@ const stringSession = process.env.TG_STRING_SESSION;
 const botToken = process.env.BOT_TOKEN;
 
 // NEW TARGETS
-const targetPremiumId = process.env.TARGET_CHANNEL_PREMIUM;
-const targetMoonId = process.env.TARGET_CHANNEL_MOON;
-const targetStarId = process.env.TARGET_CHANNEL_STAR;
-const targetOthersId = process.env.TARGET_CHANNEL_OTHERS;
+const targetMidCapId = process.env.TARGET_MID_CAP_BUILDING;
+const targetGoodEntryId = process.env.TARGET_GOOD_HOLDERS_ENTRY;
+const targetLowEarlyId = process.env.TARGET_LOW_HOLDERS_EARLY;
+const targetOthersId = process.env.TARGET_OTHERS_CA;
 
 const FORWARD_DELAY_MS = Number(process.env.FORWARD_DELAY_MS ?? '1200');
 
@@ -28,13 +28,13 @@ if (!apiId || !apiHash || !stringSession) {
 
 if (
   !botToken ||
-  !targetPremiumId ||
-  !targetMoonId ||
-  !targetStarId ||
+  !targetMidCapId ||
+  !targetGoodEntryId ||
+  !targetLowEarlyId ||
   !targetOthersId
 ) {
   throw new Error(
-    'Missing BOT_TOKEN / TARGET_CHANNEL_PREMIUM / TARGET_CHANNEL_MOON / TARGET_CHANNEL_STAR / TARGET_CHANNEL_OTHERS in .env'
+    'Missing BOT_TOKEN / TARGET_MID_CAP_BUILDING / TARGET_GOOD_HOLDERS_ENTRY / TARGET_LOW_HOLDERS_EARLY / TARGET_OTHERS_CA in .env'
   );
 }
 
@@ -94,13 +94,13 @@ function normalizeOut(out) {
 
 function resolveTargetChatId(normalized) {
   switch (normalized.target) {
-    case 'premium':
-      return targetPremiumId;
-    case 'star':
-      return targetStarId;
-    case 'moon':
-      return targetMoonId;
-    default:
+    case 'premium': // MID CAP BUILDING
+      return targetMidCapId;
+    case 'moon': // GOOD HOLDERS EARLY
+      return targetGoodEntryId;
+    case 'star': // LOW HOLDERS EARLY
+      return targetLowEarlyId;
+    default: // others
       return targetOthersId;
   }
 }

@@ -95,14 +95,14 @@ function classify({ mc, holders }) {
 
   // 1 & 2: 0–30k
   if (mc >= 0 && mc <= 30_000) {
-    // 1) LOW HOLDERS EARLY -> STAR
+    // 1) LOW HOLDERS EARLY
     if (holders < 90) return 'star';
 
-    // 2) GOOD HOLDERS EARLY -> MOON
+    // 2) GOOD HOLDERS EARLY
     return 'moon';
   }
 
-  // 3) MID CAP BUILDING: >30k–80k & holders >=120 -> PREMIUM
+  // 3) MID CAP BUILDING: >30k–80k & holders >=120
   if (mc > 30_000 && mc <= 80_000) {
     if (holders >= 120) return 'premium';
     return 'others';
@@ -120,15 +120,13 @@ export function axioscanPremiumHandler({ sourceName, text }) {
   const d = parseAxi(raw);
   const target = classify(d);
 
+  // premium handler hanya ambil bucket MID CAP BUILDING
   if (target !== 'premium') return null;
 
   const cleaned = stripFooter(raw);
   if (!cleaned) return null;
 
-  return {
-    target: 'premium',
-    text: cleaned.trim(),
-  };
+  return { target: 'premium', text: cleaned.trim() };
 }
 
 export function axioscanFreeHandler({ sourceName, text }) {
@@ -138,13 +136,11 @@ export function axioscanFreeHandler({ sourceName, text }) {
   const d = parseAxi(raw);
   const target = classify(d);
 
+  // biar tidak double-send, premium biar premiumHandler yang ambil
   if (target === 'premium') return null;
 
   const cleaned = stripFooter(raw);
   if (!cleaned) return null;
 
-  return {
-    target,
-    text: cleaned.trim(),
-  };
+  return { target, text: cleaned.trim() };
 }
